@@ -31,11 +31,12 @@ function fetchData(string $url, string $body): string|false
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: text/plain']);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
     }
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 1);
+    //curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
+    //curl_setopt($ch, CURLOPT_TIMEOUT, 1);
     $output = curl_exec($ch);
+    $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
-    return $output;
+    return $httpcode == 200 ? $output : false;
 }
 
 $server->on("Start", function (Server $server) {
@@ -82,11 +83,13 @@ $server->on("Handshake", function (Request $request, Response $response) use ($f
     if ($message === false) {
         $response->status(502);
         $response->end("error when proxying connect");
+        echo "error when proxying connect\n";
         return false;
     }
     if ($message != "ok") {
         $response->status(403);
         $response->end("not allowed to connect");
+        echo "not allowed to connect: $message\n";
         return false;
     }
     $fds->set($address, ['value' => $request->fd]);
@@ -109,20 +112,24 @@ $server->on("Handshake", function (Request $request, Response $response) use ($f
     return true;
 });
 
-$server->on('Message', function (Server $server, Frame $frame) use ($addresses, $serverUrl) {
+$server->on('Message', function (Server $server, Frame $frame) use ($addresses, $serverUrl): bool {
     $address = $addresses->get("$frame->fd", "value");
     if ($frame->opcode === Server::WEBSOCKET_OPCODE_BINARY) {
         echo "binary messages not supported\n";
-        return;
+        return false;
     }
     if ($frame->opcode === Server::WEBSOCKET_OPCODE_PING) {
         $pongFrame = new Frame();
         $pongFrame->opcode = Server::WEBSOCKET_OPCODE_PONG;
         $server->push($frame->fd, $pongFrame);
-        return;
+        return true;
     }
     if ($frame->opcode === Server::WEBSOCKET_OPCODE_TEXT) {
         $response = fetchData($serverUrl . $address, $frame->data);
+        if ($response === false) {
+            echo "error when proxying request\n";
+            return false;
+        }
         if (strlen($response ?: '') > 0) {
             $responseFrame = new Frame();
             $responseFrame->opcode = Server::WEBSOCKET_OPCODE_TEXT;
@@ -131,6 +138,7 @@ $server->on('Message', function (Server $server, Frame $frame) use ($addresses, 
         }
         return true;
     }
+    return false;
 });
 
 $server->on('Disconnect', function (Server $server, int $fd) use ($fds, $addresses) {
