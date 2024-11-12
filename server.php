@@ -8,6 +8,7 @@ use OpenSwoole\Table;
 use OpenSwoole\WebSocket\Frame;
 
 $server = new Server("0.0.0.0", 4000);
+$server->set(["max_connection" => 1000000]);
 
 $serverUrl = "http://localhost:5000/";
 
