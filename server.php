@@ -12,7 +12,7 @@ use OpenSwoole\WebSocket\Frame;
 
 $server = new Server("0.0.0.0", 4000);
 $server->set([
-    "max_connection" => 1000000,
+    'max_connection' => 1000000,
     'max_coroutine' => 3000000,
     'reactor_num' => Util::getCPUNum() + 2,
     'worker_num' => Util::getCPUNum() * 4,
