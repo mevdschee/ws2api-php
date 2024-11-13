@@ -2,7 +2,6 @@
 
 use OpenSwoole\Atomic;
 use OpenSwoole\Coroutine;
-use OpenSwoole\Coroutine\System;
 use OpenSwoole\WebSocket\Server;
 use OpenSwoole\Http\Request;
 use OpenSwoole\Http\Response;
