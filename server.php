@@ -1,5 +1,8 @@
 <?php
 
+use OpenSwoole\Atomic;
+use OpenSwoole\Coroutine;
+use OpenSwoole\Coroutine\System;
 use OpenSwoole\WebSocket\Server;
 use OpenSwoole\Http\Request;
 use OpenSwoole\Http\Response;
@@ -13,7 +16,6 @@ $server->set(["max_connection" => 1000000]);
 $serverUrl = "http://localhost:5000/";
 
 Runtime::enableCoroutine(Runtime::HOOK_NATIVE_CURL);
-Runtime::enableCoroutine(false, Runtime::HOOK_SOCKETS);
 
 $fds = new Table(1024 * 1024);
 $fds->column('value', Table::TYPE_INT, 8);
@@ -21,9 +23,17 @@ $fds->create();
 $addresses = new Table(1024 * 1024);
 $addresses->column('value', Table::TYPE_STRING, 256);
 $addresses->create();
+$readLocks = [];
 
-function fetchData(string $url, string $body): string|false
+function fetchData(string $url, string $body, Atomic $counter): string|false
 {
+    while (!$counter->cmpset(0, 1)) {
+        Coroutine::usleep(10);
+    }
+    Coroutine::defer(function () use ($counter) {
+        $counter->set(0);
+    });
+
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
@@ -77,9 +87,11 @@ $server->on('Request', function (Request $request, Response $response) use ($fds
     $response->end("no upgrade requested");
 });
 
-$server->on("Handshake", function (Request $request, Response $response) use ($fds, $addresses, $serverUrl): bool {
+$server->on("Handshake", function (Request $request, Response $response) use ($fds, $addresses, $serverUrl, &$readLocks): bool {
     $address = explode('/', $request->server['request_uri'])[1];
-    $message = fetchData($serverUrl . $address, "");
+    $readLock = new Atomic(0);
+    $readLocks[$address] = $readLock;
+    $message = fetchData($serverUrl . $address, "", $readLock);
     if ($message === false) {
         $response->status(502);
         $response->end("error when proxying connect");
@@ -112,8 +124,9 @@ $server->on("Handshake", function (Request $request, Response $response) use ($f
     return true;
 });
 
-$server->on('Message', function (Server $server, Frame $frame) use ($addresses, $serverUrl): bool {
+$server->on('Message', function (Server $server, Frame $frame) use ($addresses, $serverUrl, &$readLocks): bool {
     $address = $addresses->get("$frame->fd", "value");
+    $readLock = $readLocks[$address];
     if ($frame->opcode === Server::WEBSOCKET_OPCODE_BINARY) {
         echo "binary messages not supported\n";
         return false;
@@ -125,7 +138,7 @@ $server->on('Message', function (Server $server, Frame $frame) use ($addresses, 
         return true;
     }
     if ($frame->opcode === Server::WEBSOCKET_OPCODE_TEXT) {
-        $response = fetchData($serverUrl . $address, $frame->data);
+        $response = fetchData($serverUrl . $address, $frame->data, $readLock);
         if ($response === false) {
             echo "error when proxying request\n";
             return false;
