@@ -7,10 +7,16 @@ use OpenSwoole\Http\Request;
 use OpenSwoole\Http\Response;
 use OpenSwoole\Runtime;
 use OpenSwoole\Table;
+use OpenSwoole\Util;
 use OpenSwoole\WebSocket\Frame;
 
 $server = new Server("0.0.0.0", 4000);
-$server->set(["max_connection" => 1000000]);
+$server->set([
+    "max_connection" => 1000000,
+    'max_coroutine' => 3000000,
+    'reactor_num' => Util::getCPUNum() + 2,
+    'worker_num' => Util::getCPUNum() * 4,
+]);
 
 $serverUrl = "http://localhost:5000/";
 
