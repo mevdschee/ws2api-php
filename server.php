@@ -33,7 +33,7 @@ $readLocks = [];
 function fetchData(string $url, string $body, Atomic $counter): string|false
 {
     while (!$counter->cmpset(0, 1)) {
-        Coroutine::usleep(10);
+        Coroutine::usleep(100);
     }
     Coroutine::defer(function () use ($counter) {
         $counter->set(0);
