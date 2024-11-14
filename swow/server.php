@@ -17,7 +17,7 @@ use Swow\WebSocket\WebSocket;
 require 'vendor/autoload.php';
 
 $server = new Server();
-$server->$server->bind('0.0.0.0', 4000)->listen();
+$server->bind('0.0.0.0', 4000)->listen();
 
 echo "SWOW websocket server started at http://127.0.0.1:4000\n";
 
@@ -123,6 +123,7 @@ while (true) {
             } catch (Exception) {
                 // you can log error here
             } finally {
+                unset($connections[$address]);
                 $connection->close();
             }
         });
