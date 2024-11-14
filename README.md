@@ -28,3 +28,12 @@ I get:
     openswoole.unixsock_buffer_size => 8388608 => 8388608
 
 Which is what is expected.
+
+    wget getcomposer.phar
+    php composer.phar install
+
+Now you can start editing in Visual Studio Code (Intelephense) and run the code using:
+
+    php server.php
+
+Enjoy!
