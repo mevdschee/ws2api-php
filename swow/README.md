@@ -1,3 +1,8 @@
+# WS2API PHP Swow
+
+This is a port of the [WS2API](https://github.com/mevdschee/ws2api) project into
+Swow.
+
 ### Installation
 
 Install requirements using Composer with:
