@@ -1,7 +1,7 @@
 # WS2API PHP Swoole
 
 This is a port of the [WS2API](https://github.com/mevdschee/ws2api) project into
-(Open)Swoole.
+OpenSwoole.
 
 ### Installation
 
