@@ -10,7 +10,7 @@ use OpenSwoole\Table;
 use OpenSwoole\Util;
 use OpenSwoole\WebSocket\Frame;
 
-//ini_set('swoole.enable_preemptive_scheduler', '1');
+ini_set('swoole.enable_preemptive_scheduler', '1');
 
 $server = new Server("0.0.0.0", 4000);
 $server->set([
@@ -90,7 +90,7 @@ $server->on('Request', function (Request $request, Response $response) use ($fds
         $response->end("ok");
         return;
     }
-    $response->status(500);
+    $response->status(400);
     $response->end("no upgrade requested");
 });
 

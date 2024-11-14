@@ -1,4 +1,3 @@
-
 ### Installation
 
 Install requirements using Composer with:
