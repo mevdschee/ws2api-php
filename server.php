@@ -10,6 +10,8 @@ use OpenSwoole\Table;
 use OpenSwoole\Util;
 use OpenSwoole\WebSocket\Frame;
 
+//ini_set('swoole.enable_preemptive_scheduler', '1');
+
 $server = new Server("0.0.0.0", 4000);
 $server->set([
     'max_connection' => 1000000,
