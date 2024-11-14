@@ -1,3 +1,7 @@
+# WS2API PHP Swoole 
+
+This is a port of the [WS2API](https://github.com/mevdschee/ws2api) project into Swoole.s
+
 ### Installation
 
 Follow https://openswoole.com/docs/get-started/prerequisites to install
@@ -29,10 +33,18 @@ I get:
 
 Which is what is expected.
 
+### Development
+
+To install dev dependencies:
+
     wget getcomposer.phar
     php composer.phar install
 
-Now you can start editing in Visual Studio Code (Intelephense) and run the code using:
+Now you can start editing in Visual Studio Code (Intelephense)
+
+### Running
+
+You can run the code using:
 
     php server.php
 
