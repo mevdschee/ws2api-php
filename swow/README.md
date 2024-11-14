@@ -39,3 +39,23 @@ It should show something like:
     swow.enable => On => On
 
 Meaning that it is installed.
+
+### Uninstallation
+
+Remove the symlink:
+
+    sudo rm /etc/php/8.3/mods-available/swow.ini
+
+You can ensure that this extension is no longer installed using:
+
+    echo "phpinfo();" | php -a | grep swow
+
+It should not show any variables.
+
+### Running
+
+You can run the code using:
+
+    php server.php
+
+Enjoy!

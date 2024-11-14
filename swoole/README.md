@@ -1,6 +1,7 @@
-# WS2API PHP Swoole 
+# WS2API PHP Swoole
 
-This is a port of the [WS2API](https://github.com/mevdschee/ws2api) project into Swoole.s
+This is a port of the [WS2API](https://github.com/mevdschee/ws2api) project into
+(Open)Swoole.
 
 ### Installation
 
@@ -32,6 +33,18 @@ I get:
     openswoole.unixsock_buffer_size => 8388608 => 8388608
 
 Which is what is expected.
+
+### Uninstallation
+
+Remove the symlink:
+
+    sudo rm /etc/php/8.3/mods-available/openswoole.ini
+
+You can ensure that this extension is no longer installed using:
+
+    echo "phpinfo();" | php -a | grep openswoole
+
+It should not show any variables.
 
 ### Development
 
