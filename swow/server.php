@@ -49,6 +49,7 @@ while (true) {
         Coroutine::run(static function () use ($connection, $serverUrl, &$connections): void {
             try {
                 while (true) {
+                    $address = "";
                     $request = null;
                     try {
                         $request = $connection->recvHttpRequest();
@@ -115,6 +116,10 @@ while (true) {
                     } catch (HttpProtocolException $exception) {
                         $connection->error($exception->getCode(), $exception->getMessage(), close: true);
                         break;
+                    } finally {
+                        if (isset($connections[$address])) {
+                            unset($connections[$address]);
+                        }
                     }
                     if (!$connection->shouldKeepAlive()) {
                         break;
@@ -123,7 +128,6 @@ while (true) {
             } catch (Exception) {
                 // you can log error here
             } finally {
-                unset($connections[$address]);
                 $connection->close();
             }
         });

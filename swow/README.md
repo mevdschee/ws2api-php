@@ -3,6 +3,8 @@
 This is a port of the [WS2API](https://github.com/mevdschee/ws2api) project into
 Swow.
 
+Limitation: this implementation uses a single thread for accepting connections.
+
 ### Installation
 
 Install requirements using Composer with:
