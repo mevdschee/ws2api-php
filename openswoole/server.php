@@ -173,7 +173,6 @@ $server->on('Disconnect', function (Server $server, int $fd) use ($fds, $address
     $fds->del($address);
 });
 
-// Every 1s, execute the run function
 Timer::tick(1000, function () use ($qps, $conns) {
     static $seconds = 0;
     static $total = 0;
@@ -185,6 +184,5 @@ Timer::tick(1000, function () use ($qps, $conns) {
     $total += $queriesps;
     echo "$seconds,$conncount,$queriesps,$total\n";
 });
-
 
 $server->start();
