@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use OpenSwoole\Atomic;
 use Swow\Coroutine;
 use Swow\CoroutineException;
 use Swow\Errno;
@@ -25,6 +26,9 @@ $serverUrl = "http://localhost:5000/";
 
 $connections = [];
 
+$qps = 0;
+$conns = 0;
+
 function fetchData(string $url, string $body): string|false
 {
     $ch = curl_init();
@@ -42,11 +46,25 @@ function fetchData(string $url, string $body): string|false
     return $httpcode == 200 ? $output : false;
 }
 
+Coroutine::run(static function () use (&$qps, &$conns): void {
+    while (true) {
+        sleep(1);
+        static $seconds = 0;
+        static $total = 0;
+        if (!$seconds) echo "seconds,connections,qps,total\n";
+        $seconds += 1;
+        $queriesps = $qps;
+        $qps = 0;
+        $total += $queriesps;
+        echo "$seconds,$conns,$queriesps,$total\n";
+    }
+});
+
 while (true) {
     try {
         $connection = null;
         $connection = $server->acceptConnection();
-        Coroutine::run(static function () use ($connection, $serverUrl, &$connections): void {
+        Coroutine::run(static function () use (&$qps, &$conns, $connection, $serverUrl, &$connections): void {
             try {
                 while (true) {
                     $address = "";
@@ -83,7 +101,9 @@ while (true) {
                         }
                         $connection->upgradeToWebSocket($request);
                         $request = null;
+                        $conns += 1;
                         while (true) {
+                            $qps += 1;
                             $frame = $connection->recvWebSocketFrame();
                             $opcode = $frame->getOpcode();
                             switch ($opcode) {
