@@ -7,6 +7,7 @@ use OpenSwoole\Http\Request;
 use OpenSwoole\Http\Response;
 use OpenSwoole\Runtime;
 use OpenSwoole\Table;
+use OpenSwoole\Timer;
 use OpenSwoole\Util;
 use OpenSwoole\WebSocket\Frame;
 
@@ -19,6 +20,9 @@ $server->set([
     'reactor_num' => Util::getCPUNum() + 2,
     'worker_num' => Util::getCPUNum() * 4,
 ]);
+
+$conns = new Atomic(0);
+$qps = new Atomic(0);
 
 $serverUrl = "http://localhost:5000/";
 
@@ -94,7 +98,7 @@ $server->on('Request', function (Request $request, Response $response) use ($fds
     $response->end("no upgrade requested");
 });
 
-$server->on("Handshake", function (Request $request, Response $response) use ($fds, $addresses, $serverUrl, &$readLocks): bool {
+$server->on("Handshake", function (Request $request, Response $response) use ($conns, $fds, $addresses, $serverUrl, &$readLocks): bool {
     $address = explode('/', $request->server['request_uri'])[1];
     $readLock = new Atomic(0);
     $readLocks[$address] = $readLock;
@@ -128,10 +132,12 @@ $server->on("Handshake", function (Request $request, Response $response) use ($f
     }
     $response->status(101);
     $response->end();
+    $conns->add(1);
     return true;
 });
 
-$server->on('Message', function (Server $server, Frame $frame) use ($addresses, $serverUrl, &$readLocks): bool {
+$server->on('Message', function (Server $server, Frame $frame) use ($qps, $addresses, $serverUrl, &$readLocks): bool {
+    $qps->add(1);
     $address = $addresses->get("$frame->fd", "value");
     $readLock = $readLocks[$address];
     if ($frame->opcode === Server::WEBSOCKET_OPCODE_BINARY) {
@@ -166,5 +172,19 @@ $server->on('Disconnect', function (Server $server, int $fd) use ($fds, $address
     $addresses->del("$fd");
     $fds->del($address);
 });
+
+// Every 1s, execute the run function
+Timer::tick(1000, function () use ($qps, $conns) {
+    static $seconds = 0;
+    static $total = 0;
+    if (!$seconds) echo "seconds,connections,qps,total\n";
+    $seconds += 1;
+    $conncount = $conns->get();
+    $queriesps = $qps->get();
+    $qps->set(0);
+    $total += $queriesps;
+    echo "$seconds,$conncount,$queriesps,$total\n";
+});
+
 
 $server->start();
