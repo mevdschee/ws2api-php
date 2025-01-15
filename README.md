@@ -62,6 +62,6 @@ Now you can start editing in Visual Studio Code (Intelephense)
 
 You can run the code using:
 
-    php server.php
+    php src/server.php
 
 Enjoy!
