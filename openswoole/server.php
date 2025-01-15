@@ -6,7 +6,6 @@ use OpenSwoole\WebSocket\Server;
 use OpenSwoole\Coroutine\Http\Client;
 use OpenSwoole\Http\Request;
 use OpenSwoole\Http\Response;
-use OpenSwoole\Runtime;
 use OpenSwoole\Table;
 use OpenSwoole\Timer;
 use OpenSwoole\Util;
@@ -33,7 +32,7 @@ $addresses->column('value', Table::TYPE_STRING, 256);
 $addresses->create();
 $readLocks = [];
 
-function fetchData(string $url, string $body, Atomic $counter): string|false
+function fetchData(string $method, string $url, string $body, Atomic $counter): string|false
 {
     while (!$counter->cmpset(0, 1)) {
         Coroutine::usleep(100);
@@ -44,11 +43,11 @@ function fetchData(string $url, string $body, Atomic $counter): string|false
 
     $parsedUrl = parse_url($url);
     $client = new Client($parsedUrl['host'], $parsedUrl['port'], $parsedUrl['scheme'] == 'https');
+    $client->setMethod($method);
     if (strlen($body) > 0) {
-        $client->post($parsedUrl['path'], $body);
-    } else {
-        $client->get($parsedUrl['path']);
+        $client->setData($body);
     }
+    $client->execute($parsedUrl['path']);
     $httpcode = $client->getStatusCode();
     $output = $client->getBody();
     return $httpcode == 200 ? $output : false;
@@ -96,7 +95,7 @@ $server->on("Handshake", function (Request $request, Response $response) use ($c
     $address = explode('/', $request->server['request_uri'])[1];
     $readLock = new Atomic(0);
     $readLocks[$address] = $readLock;
-    $message = fetchData($serverUrl . $address, "", $readLock);
+    $message = fetchData("GET", $serverUrl . $address, "", $readLock);
     if ($message === false) {
         $response->status(502);
         $response->end("error when proxying connect");
@@ -145,7 +144,7 @@ $server->on('Message', function (Server $server, Frame $frame) use ($rps, $addre
         return true;
     }
     if ($frame->opcode === Server::WEBSOCKET_OPCODE_TEXT) {
-        $response = fetchData($serverUrl . $address, $frame->data, $readLock);
+        $response = fetchData("POST", $serverUrl . $address, $frame->data, $readLock);
         if ($response === false) {
             echo "error when proxying request\n";
             return false;
@@ -161,10 +160,15 @@ $server->on('Message', function (Server $server, Frame $frame) use ($rps, $addre
     return false;
 });
 
-$server->on('Disconnect', function (Server $server, int $fd) use ($fds, $addresses) {
+$server->on('Close', function (Server $server, int $fd) use ($fds, $addresses,  $serverUrl, &$readLocks) {
     $address = $addresses->get("$fd", "value");
+    $readLock = $readLocks[$address];
     $addresses->del("$fd");
     $fds->del($address);
+    $message = fetchData("DELETE", $serverUrl . $address, "", $readLock);
+    if ($message != "ok") {
+        echo "not allowed to disconnect: $message\n";
+    }
 });
 
 Timer::tick(1000, function () use ($rps, $conns) {
