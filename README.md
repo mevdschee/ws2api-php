@@ -53,7 +53,7 @@ It should not show any variables.
 
 To install dev dependencies:
 
-    wget getcomposer.phar
+    wget getcomposer.org/composer.phar
     php composer.phar install
 
 Now you can start editing in Visual Studio Code (Intelephense)
