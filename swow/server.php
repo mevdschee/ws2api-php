@@ -18,11 +18,11 @@ use Swow\WebSocket\WebSocket;
 require 'vendor/autoload.php';
 
 $server = new Server();
-$server->bind('0.0.0.0', 4000)->listen();
+$server->bind('0.0.0.0', 7001)->listen();
 
-echo "SWOW websocket server started at http://127.0.0.1:4000\n";
+echo "SWOW websocket server started at http://127.0.0.1:7001\n";
 
-$serverUrl = "http://localhost:5000/";
+$serverUrl = "http://localhost:8000/";
 
 $connections = [];
 

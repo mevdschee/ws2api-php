@@ -3,6 +3,7 @@
 use OpenSwoole\Atomic;
 use OpenSwoole\Coroutine;
 use OpenSwoole\WebSocket\Server;
+use OpenSwoole\Coroutine\Http\Client;
 use OpenSwoole\Http\Request;
 use OpenSwoole\Http\Response;
 use OpenSwoole\Runtime;
@@ -11,9 +12,7 @@ use OpenSwoole\Timer;
 use OpenSwoole\Util;
 use OpenSwoole\WebSocket\Frame;
 
-ini_set('swoole.enable_preemptive_scheduler', '1');
-
-$server = new Server("0.0.0.0", 4000);
+$server = new Server("0.0.0.0", 7001, Server::POOL_MODE);
 $server->set([
     'max_connection' => 1000000,
     'max_coroutine' => 3000000,
@@ -22,11 +21,9 @@ $server->set([
 ]);
 
 $conns = new Atomic(0);
-$qps = new Atomic(0);
+$rps = new Atomic(0);
 
-$serverUrl = "http://localhost:5000/";
-
-Runtime::enableCoroutine(Runtime::HOOK_NATIVE_CURL);
+$serverUrl = "http://localhost:8000/";
 
 $fds = new Table(1024 * 1024);
 $fds->column('value', Table::TYPE_INT, 8);
@@ -45,23 +42,20 @@ function fetchData(string $url, string $body, Atomic $counter): string|false
         $counter->set(0);
     });
 
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    $parsedUrl = parse_url($url);
+    $client = new Client($parsedUrl['host'], $parsedUrl['port'], $parsedUrl['scheme'] == 'https');
     if (strlen($body) > 0) {
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: text/plain']);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+        $client->post($parsedUrl['path'], $body);
+    } else {
+        $client->get($parsedUrl['path']);
     }
-    //curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
-    //curl_setopt($ch, CURLOPT_TIMEOUT, 1);
-    $output = curl_exec($ch);
-    $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    $httpcode = $client->getStatusCode();
+    $output = $client->getBody();
     return $httpcode == 200 ? $output : false;
 }
 
 $server->on("Start", function (Server $server) {
-    echo "OpenSwoole WebSocket Server is started at http://127.0.0.1:4000\n";
+    echo "OpenSwoole WebSocket Server is started at http://127.0.0.1:7001\n";
 });
 
 // The Request event closure callback is passed the context of $server
@@ -136,8 +130,8 @@ $server->on("Handshake", function (Request $request, Response $response) use ($c
     return true;
 });
 
-$server->on('Message', function (Server $server, Frame $frame) use ($qps, $addresses, $serverUrl, &$readLocks): bool {
-    $qps->add(1);
+$server->on('Message', function (Server $server, Frame $frame) use ($rps, $addresses, $serverUrl, &$readLocks): bool {
+    $rps->add(1);
     $address = $addresses->get("$frame->fd", "value");
     $readLock = $readLocks[$address];
     if ($frame->opcode === Server::WEBSOCKET_OPCODE_BINARY) {
@@ -173,14 +167,14 @@ $server->on('Disconnect', function (Server $server, int $fd) use ($fds, $address
     $fds->del($address);
 });
 
-Timer::tick(1000, function () use ($qps, $conns) {
+Timer::tick(1000, function () use ($rps, $conns) {
     static $seconds = 0;
     static $total = 0;
-    if (!$seconds) echo "seconds,connections,qps,total\n";
+    if (!$seconds) echo "seconds,connections,rps,total\n";
     $seconds += 1;
     $conncount = $conns->get();
-    $queriesps = $qps->get();
-    $qps->set(0);
+    $queriesps = $rps->get();
+    $rps->set(0);
     $total += $queriesps;
     echo "$seconds,$conncount,$queriesps,$total\n";
 });
