@@ -3,6 +3,7 @@
         "openswoole/core": "22.1.5"
     },
     "require-dev": {
-        "openswoole/ide-helper": "^22.1"
+        "openswoole/ide-helper": "^22.1",
+        "phpunit/phpunit": "^11.5"
     }
 }

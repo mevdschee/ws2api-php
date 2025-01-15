@@ -11,7 +11,11 @@ use OpenSwoole\Timer;
 use OpenSwoole\Util;
 use OpenSwoole\WebSocket\Frame;
 
-$server = new Server("0.0.0.0", 7001, Server::POOL_MODE);
+$listenHost = $argv[1] ?? "0.0.0.0";
+$listenPort = intval($argv[2] ?? 7001);
+$serverUrl = $argv[3] ?? "http://localhost:8000/";
+
+$server = new Server($listenHost, $listenPort, Server::POOL_MODE);
 $server->set([
     'max_connection' => 1000000,
     'max_coroutine' => 3000000,
@@ -21,8 +25,6 @@ $server->set([
 
 $conns = new Atomic(0);
 $rps = new Atomic(0);
-
-$serverUrl = "http://localhost:8000/";
 
 $fds = new Table(1024 * 1024);
 $fds->column('value', Table::TYPE_INT, 8);
@@ -52,10 +54,6 @@ function fetchData(string $method, string $url, string $body, Atomic $counter): 
     $output = $client->getBody();
     return $httpcode == 200 ? $output : false;
 }
-
-$server->on("Start", function (Server $server) {
-    echo "OpenSwoole WebSocket Server is started at http://127.0.0.1:7001\n";
-});
 
 // The Request event closure callback is passed the context of $server
 $server->on('Request', function (Request $request, Response $response) use ($fds, $server) {
@@ -171,16 +169,18 @@ $server->on('Close', function (Server $server, int $fd) use ($fds, $addresses,  
     }
 });
 
-Timer::tick(1000, function () use ($rps, $conns) {
-    static $seconds = 0;
-    static $total = 0;
-    if (!$seconds) echo "seconds,connections,rps,total\n";
-    $seconds += 1;
-    $conncount = $conns->get();
-    $queriesps = $rps->get();
-    $rps->set(0);
-    $total += $queriesps;
-    echo "$seconds,$conncount,$queriesps,$total\n";
-});
+if (!defined('TESTING')) {
+    Timer::tick(1000, function () use ($rps, $conns) {
+        static $seconds = 0;
+        static $total = 0;
+        if (!$seconds) echo "seconds,connections,rps,total\n";
+        $seconds += 1;
+        $conncount = $conns->get();
+        $queriesps = $rps->get();
+        $rps->set(0);
+        $total += $queriesps;
+        echo "$seconds,$conncount,$queriesps,$total\n";
+    });
+}
 
 $server->start();
